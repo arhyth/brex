@@ -1,6 +1,6 @@
 defmodule Brex do
   @moduledoc """
-  Documentation for `Brex`.
+  1brc in Elixir
   """
 
   @doc """
@@ -29,12 +29,9 @@ defmodule Brex do
   """
   def aggregate(fname) do
     fname
-    |> File.stream!(read_ahead: 10_000)
+    |> File.stream!(read_ahead: 100_000)
     |> Flow.from_enumerable(stages: System.schedulers_online(), max_demand: 10_000, min_demand: 1_000)
-    |> Flow.map(fn raw ->
-      [city, tempstr] = String.split(raw, ";")
-      {city, tempstr |> String.trim_trailing() |> String.to_float()}
-    end)
+    |> Flow.map(&parse_measurement/1)
     |> Flow.partition(key: {:elem, 0}, stages: System.schedulers_online())
     |> Flow.reduce(
       fn -> %{} end,
@@ -55,5 +52,10 @@ defmodule Brex do
       {[cities], cities}
     end)
     |> Enum.to_list()
+  end
+
+  defp parse_measurement(line) do
+    [city, tempstr] = String.split(line, ";")
+    {city, tempstr |> String.trim_trailing() |> String.to_float()}
   end
 end
