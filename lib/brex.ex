@@ -9,11 +9,7 @@ defmodule Brex do
   def aggregate(fname) do
     fname
     |> File.stream!([], 4 * 4096)
-    |> Stream.transform("", fn bs, leftover ->
-      {valid, newleftover} = first_line(bs)
-      emit = <<leftover::binary, valid::binary>>
-      {[emit], newleftover}
-    end)
+    |> Stream.transform("", &Brex.Parser.into_valid_chunks/2)
     |> Flow.from_enumerable(stages: 4, max_demand: 2, min_demand: 1)
     |> Flow.flat_map(&Brex.Parser.parse/1)
     |> Flow.partition(key: {:elem, 0}, stages: 100)
@@ -37,11 +33,4 @@ defmodule Brex do
     end)
     |> Enum.to_list()
   end
-
-  def first_line(bitstring) do
-    first_line("", bitstring)
-  end
-
-  defp first_line(line, <<10, leftover::binary>>), do: {<<line::binary, 10>>, leftover}
-  defp first_line(line, <<b::size(8), leftover::binary>>), do: first_line(<<line::binary, b>>, leftover)
 end
