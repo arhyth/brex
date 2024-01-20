@@ -1,0 +1,13 @@
+[package]
+name = "brex_parser"
+version = "0.1.0"
+authors = ["David Ebreo <arhyth@gmail.com>"]
+edition = "2021"
+
+[lib]
+name = "brex_parser"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+rustler = "0.30.0"

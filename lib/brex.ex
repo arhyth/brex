@@ -5,34 +5,18 @@ defmodule Brex do
 
   @doc """
   Aggregate measurements file
-
-  ## Examples
-
-      iex> Brex.aggregate("/measurements.txt")
-      [
-        "Ankara" => %{
-          count: 2420864,
-          max: 61.2,
-          min: -35.5,
-          sum: 29062101.30000199
-        },
-        "Lagos" => %{
-          count: 2424826,
-          max: 75.4,
-          min: -23.9,
-          sum: 64968854.600000165
-        },
-        "Madrid" => %{count: 2421767, max: 63.0, min: -36.6, sum: 36320123.4000006},
-        "New Orleans" => %{count: 2422440, max: 69.2, min: -28.7, sum: 50132458.49999849},
-        ...
-
   """
   def aggregate(fname) do
     fname
-    |> File.stream!(read_ahead: 100_000)
-    |> Flow.from_enumerable(stages: System.schedulers_online(), max_demand: 10_000, min_demand: 1_000)
-    |> Flow.map(&parse_measurement/1)
-    |> Flow.partition(key: {:elem, 0}, stages: System.schedulers_online())
+    |> File.stream!([], 4 * 4096)
+    |> Stream.transform("", fn bs, leftover ->
+      {valid, newleftover} = first_line(bs)
+      emit = <<leftover::binary, valid::binary>>
+      {[emit], newleftover}
+    end)
+    |> Flow.from_enumerable(stages: 4, max_demand: 2, min_demand: 1)
+    |> Flow.flat_map(&Brex.Parser.parse/1)
+    |> Flow.partition(key: {:elem, 0}, stages: 100)
     |> Flow.reduce(
       fn -> %{} end,
       fn {city, measured}, cities ->
@@ -54,8 +38,10 @@ defmodule Brex do
     |> Enum.to_list()
   end
 
-  defp parse_measurement(line) do
-    [city, tempstr] = String.split(line, ";")
-    {city, tempstr |> String.trim_trailing() |> String.to_float()}
+  def first_line(bitstring) do
+    first_line("", bitstring)
   end
+
+  defp first_line(line, <<10, leftover::binary>>), do: {<<line::binary, 10>>, leftover}
+  defp first_line(line, <<b::size(8), leftover::binary>>), do: first_line(<<line::binary, b>>, leftover)
 end
