@@ -31,6 +31,8 @@ defmodule Brex do
     |> Flow.on_trigger(fn cities ->
       {[cities], cities}
     end)
-    |> Enum.to_list()
+    |> Enum.reduce(%{}, fn cities, all ->
+      Map.merge(all, cities)
+    end)
   end
 end
