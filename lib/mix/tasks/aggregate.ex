@@ -12,7 +12,7 @@ defmodule Mix.Tasks.Aggregate do
       max = :erlang.float_to_binary(measure[:max]/10, [decimals: 1])
       IO.write("#{city}=#{min}/#{avg}/#{max},")
     end)
-    IO.write("}")
-    IO.puts("Finished aggregation in #{ts} seconds")
+    IO.puts("}")
+    IO.write("Finished aggregation in #{ts} seconds")
   end
 end
