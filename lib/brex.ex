@@ -9,19 +9,9 @@ defmodule Brex do
   def aggregate(fname) do
     fname
     |> File.stream!([], 4 * 4096)
-    |> Stream.transform("", fn chunk, leftover ->
-      case String.chunk(chunk, :valid) do
-        [invalid, valid, invalid_too] ->
-          {[<<leftover::binary, invalid::binary, valid::binary>>], invalid_too}
-        [valid, invalid] ->
-          {[<<leftover::binary, valid::binary>>], invalid}
-        [_same_chunk] ->
-          Brex.Parser.into_valid_chunks(chunk, leftover)
-        end
-    end)
-    |> Flow.from_enumerable(stages: 4, max_demand: 2, min_demand: 1)
+    |> Stream.transform("", &into_valid_chunks/2)
+    |> Flow.from_enumerable(stages: 4, max_demand: 4, min_demand: 3)
     |> Flow.flat_map(&Brex.Parser.parse/1)
-    |> Flow.partition(key: {:elem, 0}, stages: 100)
     |> Flow.reduce(
       fn -> %{} end,
       fn {city, measured}, cities ->
@@ -41,7 +31,33 @@ defmodule Brex do
       {[cities], cities}
     end)
     |> Enum.reduce(%{}, fn cities, all ->
-      Map.merge(all, cities)
+        Enum.reduce(cities, all, fn {ct, stat}, accumulated ->
+          %{min: mn, max: mx, count: c, sum: s} = stat
+          Map.update(
+            accumulated,
+            ct,
+            %{min: mn, max: mx, count: c, sum: s},
+            fn %{min: amn, max: amx, count: ac, sum: as} ->
+              amn = if mn < amn, do: mn, else: amn
+              amx = if mx > amx, do: mx, else: amx
+              %{min: amn, max: amx, count: ac + c, sum: as + s}
+            end
+          )
+        end)
     end)
   end
+
+  def into_valid_chunks("" = suchempty, leftover), do: {[leftover], suchempty}
+  def into_valid_chunks(chunk, leftover) do
+    {valid, newleftover} = first_line(chunk)
+    emit = <<leftover::binary, valid::binary>>
+    {[emit], newleftover}
+  end
+
+  def first_line(bitstring) do
+    first_line("", bitstring)
+  end
+
+  defp first_line(line, <<10, leftover::binary>>), do: {<<line::binary, 10>>, leftover}
+  defp first_line(line, <<b::size(8), leftover::binary>>), do: first_line(<<line::binary, b>>, leftover)
 end
