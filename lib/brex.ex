@@ -9,7 +9,16 @@ defmodule Brex do
   def aggregate(fname) do
     fname
     |> File.stream!([], 4 * 4096)
-    |> Stream.transform("", &Brex.Parser.into_valid_chunks/2)
+    |> Stream.transform("", fn chunk, leftover ->
+      case String.chunk(chunk, :valid) do
+        [invalid, valid, invalid_too] ->
+          {[<<leftover::binary, invalid::binary, valid::binary>>], invalid_too}
+        [valid, invalid] ->
+          {[<<leftover::binary, valid::binary>>], invalid}
+        [_same_chunk] ->
+          Brex.Parser.into_valid_chunks(chunk, leftover)
+        end
+    end)
     |> Flow.from_enumerable(stages: 4, max_demand: 2, min_demand: 1)
     |> Flow.flat_map(&Brex.Parser.parse/1)
     |> Flow.partition(key: {:elem, 0}, stages: 100)

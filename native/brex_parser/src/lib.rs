@@ -1,6 +1,6 @@
 #[rustler::nif]
-fn parse(line: Vec<u8>) -> Vec<(Vec<u8>, i32)> {
-    let mut bytz = line.iter().peekable();
+fn parse(line: &str) -> Vec<(Vec<u8>, i32)> {
+    let mut bytz = line.bytes().peekable();
     let mut cities: Vec<(Vec<u8>, i32)> = Vec::new();
     let mut is_neg = false;
 
@@ -10,7 +10,7 @@ fn parse(line: Vec<u8>) -> Vec<(Vec<u8>, i32)> {
             match b {
                 b';' => break,
                 _ => {
-                    city.push(*b); 
+                    city.push(b); 
                 }
             }
         }
@@ -41,40 +41,26 @@ fn parse(line: Vec<u8>) -> Vec<(Vec<u8>, i32)> {
 }
 
 #[rustler::nif]
-fn into_valid_chunks(raw: Vec<u8>, leftover: Vec<u8>) -> (Vec<Vec<u8>>, Vec<u8>) {
-    let mut iter = raw.iter();
-    let firstnl = iter.position(|&b| b == b'\n');
-    let lastnl = iter.rposition(|&b| b == b'\n');
-
-    let mut valid: Vec<u8>;
-    let mut newleftover: Vec<u8>;
-
-    if let Some(fi) = firstnl {
-        let li = lastnl.unwrap();
-        match li {
-            _same if li == fi => {
-                let (chunk, newlo) = raw.split_at(fi+1);
-                valid = Vec::with_capacity(leftover.len() + chunk.len());
-                valid.extend_from_slice(&leftover);
-                valid.extend_from_slice(&chunk);
-                newleftover = newlo.to_vec();
-            }
-            _ => {
-                let (chunk, newlo) = raw.split_at(li+1);
-                valid = Vec::with_capacity(leftover.len() + chunk.len());
-                valid.extend_from_slice(&leftover);
-                valid.extend_from_slice(&chunk);
-                newleftover = newlo.to_vec();
-            }
-        }
+fn into_valid_chunks<'a, 'b>(raw: &'a str, leftover: &'a str) -> (Vec<String>, &'b str)
+where
+    'a: 'b,
+{
+    let emit: Vec<String>;
+    let mut newleftover: &str = "";
+    if let Some(fi) = raw.find('\n') {
+        let li = raw.rfind('\n').unwrap();
+        let idx = if li == fi { fi } else { li };
+        let valid: &str;
+        (valid, newleftover) = raw.split_at(idx+1);
+        let mut to_join = String::with_capacity(valid.len() + leftover.len());
+        to_join.push_str(leftover);
+        to_join.push_str(valid);
+        emit = vec![to_join];
     } else {
-        valid = Vec::with_capacity(0);
-        newleftover = Vec::with_capacity(leftover.len() + raw.len());
-        newleftover.extend_from_slice(&leftover);
-        newleftover.extend_from_slice(&raw);
+        emit = vec![leftover.to_owned()];
     }
 
-    (vec![valid], newleftover)
+    (emit, newleftover)
 }
 
 rustler::init!("Elixir.Brex.Parser", [parse, into_valid_chunks]);
