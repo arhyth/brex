@@ -40,27 +40,4 @@ fn parse(line: &str) -> Vec<(Vec<u8>, i32)> {
     cities
 }
 
-#[rustler::nif]
-fn into_valid_chunks<'a, 'b>(raw: &'a str, leftover: &'a str) -> (Vec<String>, &'b str)
-where
-    'a: 'b,
-{
-    let emit: Vec<String>;
-    let mut newleftover: &str = "";
-    if let Some(fi) = raw.find('\n') {
-        let li = raw.rfind('\n').unwrap();
-        let idx = if li == fi { fi } else { li };
-        let valid: &str;
-        (valid, newleftover) = raw.split_at(idx+1);
-        let mut to_join = String::with_capacity(valid.len() + leftover.len());
-        to_join.push_str(leftover);
-        to_join.push_str(valid);
-        emit = vec![to_join];
-    } else {
-        emit = vec![leftover.to_owned()];
-    }
-
-    (emit, newleftover)
-}
-
-rustler::init!("Elixir.Brex.Parser", [parse, into_valid_chunks]);
+rustler::init!("Elixir.Brex.Parser", [parse]);
