@@ -10,7 +10,11 @@ The folowing branches are the 2 solutions I came up with:
 - `main` (runtime: ~11mins) where only the parsing of the valid chunks is written as a Rust NIF; 
 - `transform-rs` (runtime: ~50mins) where string chunking is done partly as a Rust NIF and partly in Elixir. The Elixir part was "necessary" because Rust or at least Rust NIFs do not allow invalidly shaped strings, ie. those that end in the middle of a codepoint, to be passed as `&str` or even as `Vec<u8>`. And because this chunking does more work it ends up being a lot slower than the pure Elixir implementation.
 
-### Footnotes
+## Instructions
+1. `mix compile`
+2. `mix aggregate <input_file_path>`
+
+## Footnotes
 <sup>1</sup> No esoteric techniques (eg. SIMD, unsafe implementation of hashmap, branchless code) and very readable code for a mid to a (diligent) junior level Go developer. Although knowing the precise use of fundamental stuff to create such a performant and simple code requires, of course, senior level experience.
 
 <sup>2</sup> At the time of writing, faster than the fastest Java solution. The baseline Java implementation runs at ~6mins on a 1.1GHz 8GB Intel Mac Air, whereas this Go implementation runs at ~6sec on the same machine.
