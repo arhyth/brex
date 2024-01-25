@@ -36,6 +36,7 @@ fn parse(line: &str) -> Vec<(Vec<u8>, i32)> {
         }
     
         cities.push((city, measure));
+        is_neg = false;
     }
     cities
 }
